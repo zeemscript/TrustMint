@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "../lib/wallet";
+import { contracts } from "../lib/contracts";
 import { CONTRACT_IDS, fetchContractEvents } from "../lib/stellar";
 import { useAmountValidation } from "../lib/validation";
 import { PageHeader, Card, Field, Icon } from "../components/ui";
@@ -8,7 +9,7 @@ import { useToast } from "../lib/toast";
 import type { ContractEvent } from "../types";
 
 export default function InvoicePage() {
-  const {} = useWallet();
+  const { address, signTx } = useWallet();
   const { addToast } = useToast();
   const [form, setForm] = useState({
     invoice_id: "",
@@ -22,6 +23,7 @@ export default function InvoicePage() {
   });
   const [events, setEvents] = useState<ContractEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Amount validations
   const faceValueValidation = useAmountValidation(form.face_value_usd);
@@ -53,8 +55,34 @@ export default function InvoicePage() {
       );
       return;
     }
+    if (!address) return;
+    if (!form.invoice_id.trim() || !form.issuer.trim() || !form.debtor.trim()) {
+      addToast("Invoice ID, issuer, and debtor are required", "error");
+      return;
+    }
+    setSubmitting(true);
     try {
-      addToast(`Invoice ${form.invoice_id} tokenized successfully.`, "success");
+      const faceValue = BigInt(Math.round(Number(form.face_value_usd) * 10_000_000));
+      const dueDate = Math.floor(new Date(`${form.due_date}T00:00:00Z`).getTime() / 1000);
+      if (!Number.isFinite(dueDate) || dueDate <= 0) {
+        addToast("Enter a valid due date", "error");
+        return;
+      }
+      const meta = {
+        invoice_id: form.invoice_id.trim(),
+        issuer: form.issuer.trim(),
+        debtor: form.debtor.trim(),
+        face_value_usd: faceValue,
+        discount_rate_bps: Number(form.discount_rate_bps || 0),
+        due_date: dueDate,
+        currency: form.currency.trim().toUpperCase(),
+        ipfs_doc_hash: form.ipfs_doc_hash.trim(),
+        transfer_fee_bps: 0,
+        fee_recipient: null,
+      };
+      await contracts.invoice.createInvoice(address, meta, signTx);
+      await contracts.invoice.issue(address, meta.invoice_id, address, faceValue, signTx);
+      addToast(`Invoice ${form.invoice_id} created and issued successfully.`, "success");
       setForm({
         invoice_id: "",
         issuer: "",
@@ -70,6 +98,8 @@ export default function InvoicePage() {
         err instanceof Error ? err.message : "Failed to tokenize invoice.",
         "error",
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -154,7 +184,7 @@ export default function InvoicePage() {
               style={{ marginTop: "0.75rem" }}
               disabled={hasFaceValueError || hasDiscountRateError}
             >
-              Tokenize Invoice
+              {submitting ? "Submitting…" : "Create and Issue Invoice"}
             </button>
           </form>
         </Card>

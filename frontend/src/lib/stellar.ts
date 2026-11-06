@@ -1,5 +1,6 @@
-import { Networks, TransactionBuilder, rpc } from "@stellar/stellar-sdk";
+import { Networks, TransactionBuilder, rpc, scValToNative } from "@stellar/stellar-sdk";
 import { useNetworkStore, getNetworkRpcUrl } from "./networkStore";
+import type { ContractEvent } from "../types";
 
 export const getNetwork = () => useNetworkStore.getState().network;
 
@@ -169,15 +170,41 @@ export async function simulateAndSend(
   return getResult as rpc.Api.GetSuccessfulTransactionResponse;
 }
 
-/**
- * Fetch contract events for a given contract ID.
- * Returns a stub implementation for now.
- */
+/** Fetch recent Soroban contract events and normalize them for the dashboard. */
 export async function fetchContractEvents(
-  _contractId: string,
-  _limit: number = 10,
-): Promise<any[]> {
-  // Stub implementation - returns empty array
-  // In a real implementation, this would query the blockchain for contract events
-  return [];
+  contractId: string,
+  limit: number = 10,
+): Promise<ContractEvent[]> {
+  const latest = await server.getLatestLedger();
+  const response = await server.getEvents({
+    startLedger: Math.max(1, latest.sequence - 10_000),
+    filters: [{ type: "contract", contractIds: [contractId] }],
+    limit: Math.min(Math.max(limit, 1), 100),
+  });
+
+  return response.events.slice().reverse().map((event) => {
+    const topicValues = event.topic.map((topic) => {
+      try {
+        return String(scValToNative(topic));
+      } catch {
+        return topic.toXDR("base64");
+      }
+    });
+    let amount = "";
+    try {
+      const value = scValToNative(event.value);
+      amount = typeof value === "object" && value !== null && "amount" in value
+        ? String((value as { amount: unknown }).amount)
+        : String(value);
+    } catch {
+      amount = event.value.toXDR("base64");
+    }
+
+    return {
+      type: topicValues[0] ?? "event",
+      amount,
+      counterparty: topicValues[topicValues.length > 1 ? 1 : 0] ?? "",
+      timestamp: event.ledgerClosedAt,
+    };
+  });
 }

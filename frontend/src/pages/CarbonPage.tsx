@@ -156,7 +156,8 @@ export default function CarbonPage() {
     }
     setMintLoading(true);
     try {
-      await contracts.carbonToken.mint(
+      await contracts.carbon.mint(
+        address,
         mintTo || address,
         BigInt(mintAmount),
         signTx,
@@ -184,7 +185,7 @@ export default function CarbonPage() {
     }
     setTransferLoading(true);
     try {
-      await contracts.carbonToken.transfer(
+      await contracts.carbon.transfer(
         address,
         transferTo,
         BigInt(transferAmount),
@@ -210,13 +211,15 @@ export default function CarbonPage() {
     setRetireLoading(true);
     setLastReceipt(null);
     try {
-      const receipt = await contracts.carbonToken.retire(
+      await contracts.carbon.retire(
         address,
         BigInt(retireAmount),
         retireBeneficiary,
         retireReason,
         signTx,
       );
+      const count = await contracts.carbon.retirementCount();
+      const receipt = await contracts.carbon.getReceipt(count - 1);
       setLastReceipt(receipt);
       addToast("Credits retired successfully.", "success");
       setRetireAmount("");
@@ -236,12 +239,11 @@ export default function CarbonPage() {
     }
     setReceiptsLoading(true);
     try {
-      const count = await contracts.carbonToken.retirementCount(address);
+      const count = await contracts.carbon.retirementCount();
       setTotalCount(count);
-      const fetched = await contracts.carbonToken.getReceipts(
+      const fetched = await contracts.carbon.getReceipts(
         targetPage * PAGE_SIZE,
         PAGE_SIZE,
-        address,
       );
       setReceipts(fetched);
       setPage(targetPage);

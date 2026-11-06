@@ -19,6 +19,8 @@ export interface InvoiceMeta {
   due_date: number;
   currency: string;
   ipfs_doc_hash: string;
+  transfer_fee_bps?: number;
+  fee_recipient?: string | null;
 }
 
 export interface PropertyMeta {

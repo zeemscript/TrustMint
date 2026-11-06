@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "../lib/wallet";
+import { contracts } from "../lib/contracts";
 import { CONTRACT_IDS, fetchContractEvents } from "../lib/stellar";
 import { useAddressValidation } from "../lib/useAddressValidation";
 import { PageHeader, Card, Field, Select, Icon } from "../components/ui";
@@ -8,7 +9,7 @@ import { useToast } from "../lib/toast";
 import type { ContractEvent } from "../types";
 
 export default function KycPage() {
-  const {} = useWallet();
+  const { address, signTx } = useWallet();
   const { addToast } = useToast();
   const [lookup, setLookup] = useState("");
   const [approveForm, setApproveForm] = useState({
@@ -19,6 +20,9 @@ export default function KycPage() {
   });
   const [events, setEvents] = useState<ContractEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [record, setRecord] = useState<import("../types").KycRecord | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [approveLoading, setApproveLoading] = useState(false);
 
   // Validation for both address fields
   const lookupValidation = useAddressValidation(lookup);
@@ -44,25 +48,37 @@ export default function KycPage() {
       addToast("Please enter a valid Stellar address", "error");
       return;
     }
-    addToast(`Querying KYC status for ${lookup}`, "info");
+    setLookupLoading(true);
+    setRecord(null);
+    contracts.kyc.getRecord(lookup)
+      .then(setRecord)
+      .catch((err: unknown) => addToast(err instanceof Error ? err.message : "No KYC record found", "error"))
+      .finally(() => setLookupLoading(false));
   };
 
-  const handleApprove = (e: React.FormEvent) => {
+  const handleApprove = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subjectValidation.isValid) {
       addToast("Please enter a valid Stellar address for the subject", "error");
       return;
     }
-    addToast(
-      `KYC approved for ${approveForm.subject} at tier ${approveForm.tier}`,
-      "success",
-    );
-    setApproveForm({
-      subject: "",
-      tier: "0",
-      jurisdiction: "",
-      expiry_days: "365",
-    });
+    if (!address) return;
+    const jurisdiction = approveForm.jurisdiction.trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(jurisdiction)) {
+      addToast("Jurisdiction must be a two-letter country code", "error");
+      return;
+    }
+    setApproveLoading(true);
+    try {
+      const expiry = BigInt(Math.floor(Date.now() / 1000) + Number(approveForm.expiry_days || 0) * 86400);
+      await contracts.kyc.approve(address, approveForm.subject, Number(approveForm.tier), expiry, jurisdiction, signTx);
+      addToast(`KYC approved for ${approveForm.subject}.`, "success");
+      setApproveForm({ subject: "", tier: "0", jurisdiction: "", expiry_days: "365" });
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "KYC approval failed", "error");
+    } finally {
+      setApproveLoading(false);
+    }
   };
 
   return (
@@ -112,6 +128,13 @@ export default function KycPage() {
             Lookup
           </button>
         </form>
+        {lookupLoading && <p className="muted" style={{ marginTop: "0.75rem" }}>Reading from the registry…</p>}
+        {record && (
+          <div className="card" style={{ marginTop: "0.75rem", background: "var(--surface-2)" }}>
+            <strong>{record.status}</strong> · Tier {record.tier} · {record.jurisdiction || "No jurisdiction"}
+            {record.expiry ? ` · Expires ${new Date(Number(record.expiry) * 1000).toLocaleDateString()}` : " · No expiry"}
+          </div>
+        )}
       </Card>
 
       <WalletGuard>
@@ -158,7 +181,7 @@ export default function KycPage() {
               style={{ marginTop: "0.5rem" }}
               disabled={!subjectValidation.isValid}
             >
-              Approve KYC
+              {approveLoading ? "Submitting…" : "Approve KYC"}
             </button>
           </form>
         </Card>

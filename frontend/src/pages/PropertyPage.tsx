@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "../lib/wallet";
+import { contracts } from "../lib/contracts";
 import { CONTRACT_IDS, fetchContractEvents } from "../lib/stellar";
 import { useAmountValidation } from "../lib/validation";
 import { PageHeader, Card, Field, Select, Icon } from "../components/ui";
@@ -8,7 +9,7 @@ import { useToast } from "../lib/toast";
 import type { ContractEvent } from "../types";
 
 export default function PropertyPage() {
-  const {} = useWallet();
+  const { address, signTx } = useWallet();
   const { addToast } = useToast();
   const [form, setForm] = useState({
     property_id: "",
@@ -23,6 +24,7 @@ export default function PropertyPage() {
   });
   const [events, setEvents] = useState<ContractEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Amount validations
   const valuationValidation = useAmountValidation(form.total_valuation_usd);
@@ -55,11 +57,13 @@ export default function PropertyPage() {
       addToast(sharesValidation.error || "Invalid share count", "error");
       return;
     }
+    if (!address) return;
+    setSubmitting(true);
     try {
-      addToast(
-        `Property "${form.legal_name}" tokenized successfully.`,
-        "success",
-      );
+      // Property metadata is fixed by the deployed contract constructor. This
+      // action issues shares for the connected, KYC-approved holder.
+      await contracts.property.mint(address, address, BigInt(form.total_shares), signTx);
+      addToast(`Issued ${form.total_shares} shares to the connected wallet.`, "success");
       setForm({
         property_id: "",
         legal_name: "",
@@ -76,6 +80,8 @@ export default function PropertyPage() {
         err instanceof Error ? err.message : "Failed to tokenize property.",
         "error",
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -89,11 +95,14 @@ export default function PropertyPage() {
       <PageHeader
         eyebrow="Asset Module"
         icon={<Icon.property size={22} />}
-        title="Property Token"
-        description="Fractionalize real estate. Each share equals one unit of ownership, and dividends distribute pro-rata on-chain."
+        title="Property Shares"
+        description="Issue shares from the deployed property contract. Property metadata is fixed at deployment, while ownership and pro-rata dividends are managed on-chain."
       />
       <WalletGuard>
         <Card>
+          <p className="muted" style={{ fontSize: "0.85rem", marginBottom: "1rem" }}>
+            The connected wallet must be the property admin and an approved holder. The deployed contract’s metadata is not changed by this form; the share count below is the on-chain action.
+          </p>
           <form onSubmit={handleTokenize}>
             <Field
               label="Property ID (internal)"
@@ -176,7 +185,7 @@ export default function PropertyPage() {
               style={{ marginTop: "0.75rem" }}
               disabled={hasValuationError || hasSharesError}
             >
-              Tokenize Property
+              {submitting ? "Submitting…" : "Issue Property Shares"}
             </button>
           </form>
         </Card>

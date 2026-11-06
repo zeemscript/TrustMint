@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Contract, scValToNative, TransactionBuilder, Account, xdr } from "@stellar/stellar-sdk";
 import { useWallet } from "../lib/wallet";
+import { contracts } from "../lib/contracts";
 import { server, CONTRACT_IDS, NETWORK_PASSPHRASE, fetchContractEvents } from "../lib/stellar";
 import { PageHeader, Card, Field, Icon, Skeleton } from "../components/ui";
 import WalletGuard from "../components/WalletGuard";
@@ -24,7 +25,7 @@ const DEFAULT_RULES: RulesFormState = {
 };
 
 export default function AdminPage() {
-  const { } = useWallet();
+  const { address, signTx } = useWallet();
   const { addToast } = useToast();
 
   const [rules, setRules] = useState<RulesFormState>(DEFAULT_RULES);
@@ -91,13 +92,33 @@ export default function AdminPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleSaveRules = (e: React.FormEvent) => {
+  const handleSaveRules = async (e: React.FormEvent) => {
     e.preventDefault();
-    addToast("Compliance rules saved successfully.", "success");
+    if (!address) return;
+    try {
+      await contracts.compliance.setRules(address, {
+        max_transfer_amount: BigInt(rules.max_transfer_amount || 0),
+        min_holding_period: Number(rules.min_holding_period || 0),
+        max_holders: Number(rules.max_holders || 0),
+        require_same_jurisdiction: rules.require_same_jurisdiction,
+        paused: rules.paused,
+      }, signTx);
+      addToast("Compliance rules saved successfully.", "success");
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "Failed to save rules", "error");
+    }
   };
 
-  const handlePause = () => addToast("All transfers paused.", "info");
-  const handleUnpause = () => addToast("Transfers unpaused.", "success");
+  const handlePause = async () => {
+    if (!address) return;
+    try { await contracts.compliance.pause(address, signTx); addToast("All transfers paused.", "info"); }
+    catch (err) { addToast(err instanceof Error ? err.message : "Failed to pause transfers", "error"); }
+  };
+  const handleUnpause = async () => {
+    if (!address) return;
+    try { await contracts.compliance.unpause(address, signTx); addToast("Transfers unpaused.", "success"); }
+    catch (err) { addToast(err instanceof Error ? err.message : "Failed to unpause transfers", "error"); }
+  };
 
   return (
     <div className="form-narrow">

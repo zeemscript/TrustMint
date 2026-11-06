@@ -9,29 +9,39 @@ export class InvoiceTokenClient extends BaseContractClient {
 
   // ── Read API ─────────────────────────────────────────────────────────────
 
-  async getMeta(): Promise<InvoiceMeta> {
-    return scVal<InvoiceMeta>(await this.simulate("get_meta", []));
+  async getMeta(invoiceId: string): Promise<InvoiceMeta> {
+    return scVal<InvoiceMeta>(await this.simulate("get_meta", [
+      nativeToScVal(invoiceId, { type: "string" }),
+    ]));
   }
 
-  async balance(addr: string): Promise<bigint> {
+  async listInvoices(start = 0, limit = 50): Promise<string[]> {
+    return scVal<string[]>(await this.simulate("list_invoices", [
+      nativeToScVal(start, { type: "u32" }),
+      nativeToScVal(limit, { type: "u32" }),
+    ]));
+  }
+
+  async balance(invoiceId: string, addr: string): Promise<bigint> {
     return scVal<bigint>(
-      await this.simulate("balance", [new Address(addr).toScVal()]),
+      await this.simulate("balance", [new Address(addr).toScVal(), nativeToScVal(invoiceId, { type: "string" })]),
     );
   }
 
-  async totalSupply(): Promise<bigint> {
-    return scVal<bigint>(await this.simulate("total_supply", []));
+  async totalSupply(invoiceId: string): Promise<bigint> {
+    return scVal<bigint>(await this.simulate("total_supply", [nativeToScVal(invoiceId, { type: "string" })]));
   }
 
-  async isSettled(): Promise<boolean> {
-    return scVal<boolean>(await this.simulate("is_settled", []));
+  async isSettled(invoiceId: string): Promise<boolean> {
+    return scVal<boolean>(await this.simulate("is_settled", [nativeToScVal(invoiceId, { type: "string" })]));
   }
 
-  async allowance(from: string, spender: string): Promise<bigint> {
+  async allowance(invoiceId: string, from: string, spender: string): Promise<bigint> {
     return scVal<bigint>(
       await this.simulate("allowance", [
         new Address(from).toScVal(),
         new Address(spender).toScVal(),
+        nativeToScVal(invoiceId, { type: "string" }),
       ]),
     );
   }
@@ -50,26 +60,33 @@ export class InvoiceTokenClient extends BaseContractClient {
 
   // ── Transaction builders (return operation XDR for signing) ───────────────
 
-  buildIssueXdr(to: string, amount: bigint): string {
+  buildCreateInvoiceXdr(meta: InvoiceMeta): string {
+    return this.buildCallXdr("create_invoice", [nativeToScVal(meta)]);
+  }
+
+  buildIssueXdr(invoiceId: string, to: string, amount: bigint): string {
     return this.buildCallXdr("issue", [
+      nativeToScVal(invoiceId, { type: "string" }),
       new Address(to).toScVal(),
       nativeToScVal(amount, { type: "i128" }),
     ]);
   }
 
-  buildSettleXdr(): string {
-    return this.buildCallXdr("settle", []);
+  buildSettleXdr(invoiceId: string): string {
+    return this.buildCallXdr("settle", [nativeToScVal(invoiceId, { type: "string" })]);
   }
 
-  buildRedeemXdr(from: string, amount: bigint): string {
+  buildRedeemXdr(invoiceId: string, from: string, amount: bigint): string {
     return this.buildCallXdr("redeem", [
+      nativeToScVal(invoiceId, { type: "string" }),
       new Address(from).toScVal(),
       nativeToScVal(amount, { type: "i128" }),
     ]);
   }
 
-  buildTransferXdr(from: string, to: string, amount: bigint): string {
+  buildTransferXdr(invoiceId: string, from: string, to: string, amount: bigint): string {
     return this.buildCallXdr("transfer", [
+      nativeToScVal(invoiceId, { type: "string" }),
       new Address(from).toScVal(),
       new Address(to).toScVal(),
       nativeToScVal(amount, { type: "i128" }),
@@ -77,6 +94,7 @@ export class InvoiceTokenClient extends BaseContractClient {
   }
 
   buildTransferFromXdr(
+    invoiceId: string,
     spender: string,
     from: string,
     to: string,
@@ -84,6 +102,7 @@ export class InvoiceTokenClient extends BaseContractClient {
   ): string {
     return this.buildCallXdr("transfer_from", [
       new Address(spender).toScVal(),
+      nativeToScVal(invoiceId, { type: "string" }),
       new Address(from).toScVal(),
       new Address(to).toScVal(),
       nativeToScVal(amount, { type: "i128" }),
@@ -91,6 +110,7 @@ export class InvoiceTokenClient extends BaseContractClient {
   }
 
   buildApproveXdr(
+    invoiceId: string,
     from: string,
     spender: string,
     amount: bigint,
@@ -99,12 +119,16 @@ export class InvoiceTokenClient extends BaseContractClient {
     return this.buildCallXdr("approve", [
       new Address(from).toScVal(),
       new Address(spender).toScVal(),
+      nativeToScVal(invoiceId, { type: "string" }),
       nativeToScVal(amount, { type: "i128" }),
       nativeToScVal(expirationLedger, { type: "u32" }),
     ]);
   }
 
-  buildUpdateMetaXdr(meta: InvoiceMeta): string {
-    return this.buildCallXdr("update_meta", [nativeToScVal(meta)]);
+  buildUpdateMetaXdr(invoiceId: string, meta: InvoiceMeta): string {
+    return this.buildCallXdr("update_meta", [
+      nativeToScVal(invoiceId, { type: "string" }),
+      nativeToScVal(meta),
+    ]);
   }
 }
