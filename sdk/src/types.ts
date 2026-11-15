@@ -60,4 +60,22 @@ export interface ComplianceRules {
   paused: boolean;
 }
 
-export type Network = "testnet" | "mainnet";
+export type Network = "testnet" | "mainnet" | "local";
+
+export interface ServerConfigOptions {
+  /** Target Stellar network preset ("testnet", "mainnet", or "local"). */
+  network: Network;
+  /** Optional custom Soroban RPC endpoint URL (e.g. local Quickstart or dedicated RPC provider). */
+  rpcUrl?: string;
+  /** Optional explicit network passphrase; when provided, must match the declared network preset. */
+  networkPassphrase?: string;
+  /** Allow plain HTTP RPC endpoints (enabled automatically for localhost/127.0.0.1 on "local"). */
+  allowHttp?: boolean;
+}
+
+export interface ResolvedNetworkConfig {
+  network: Network;
+  rpcUrl: string;
+  networkPassphrase: string;
+  allowHttp: boolean;
+}

@@ -5,7 +5,13 @@ export { PropertyTokenClient } from "./clients/PropertyTokenClient.js";
 export { CarbonTokenClient } from "./clients/CarbonTokenClient.js";
 export { RwaTokenClient } from "./clients/RwaTokenClient.js";
 
-export { createServer, RPC_URLS, NETWORK_PASSPHRASES } from "./network.js";
+export {
+  createServer,
+  resolveNetworkConfig,
+  RPC_URLS,
+  NETWORK_PASSPHRASES,
+  LOCAL_NETWORK_PASSPHRASE,
+} from "./network.js";
 
 export type {
   KycStatus,
@@ -16,4 +22,6 @@ export type {
   RetirementReceipt,
   ComplianceRules,
   Network,
+  ServerConfigOptions,
+  ResolvedNetworkConfig,
 } from "./types.js";
