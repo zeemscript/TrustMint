@@ -17,3 +17,7 @@ This policy covers the TrustMint contracts, SDK, deployment tooling, and fronten
 ## Supported code
 
 Security fixes are made against the latest code on `main`. Older tags, forks, and deployed contracts do not update automatically. Contract operators are responsible for assessing and applying upgrades or redeployments.
+
+## Threat Model
+
+For a detailed analysis of privileged roles (`Admin`, `PendingAdmin`, `VerifierList`), cross-contract trust boundaries between asset contracts and `kyc-registry` / `compliance-engine`, protected state invariants, and TTL/upgrade limitations, see [`docs/threat-model.md`](docs/threat-model.md).
