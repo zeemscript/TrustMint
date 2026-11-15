@@ -72,3 +72,12 @@ TrustMint uses Semantic Versioning for tagged contract-suite releases. Changes t
 ## Community standards
 
 Participation is governed by the [Code of Conduct](code-of-conduct.md). For security issues, use the private reporting process in [SECURITY.md](SECURITY.md).
+
+## Issue and Pull Request Templates
+
+When opening an issue or pull request, use the repository templates in [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) and [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md):
+
+- **Bug reports** (`.github/ISSUE_TEMPLATE/bug_report.md`) collect affected components, tool/network versions, deterministic reproduction steps, and non-sensitive error diagnostics.
+- **Feature requests** (`.github/ISSUE_TEMPLATE/feature_request.md`) capture scope, contract ABI/storage compatibility impact, and verification plans.
+- **Pull requests** (`.github/PULL_REQUEST_TEMPLATE.md`) document linked issues, affected components, storage/authorization impact, and verification commands run.
+- **Security reports** are routed privately via [GitHub Security Advisories](https://github.com/zeemscript/TrustMint/security/advisories/new) per [SECURITY.md](SECURITY.md) — never post exploit details, secret keys, or personal identity data in public templates.
